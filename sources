@@ -1,0 +1,19 @@
+TARGETNAME=ninefs
+TARGETTYPE=PROGRAM
+
+NPFS=..\npfs
+DOKAN=..\dokan
+
+INCLUDES=$(NPFS)\include;$(DOKAN)\dokan
+LINKLIBS=\
+        $(NPFS)\libnpclient\$(O)\npclient.lib\
+        $(NPFS)\libnpfs\$(O)\npfs.lib\
+        $(DOKAN)\dokan\$(O)\dokan.lib\
+        $(SDK_LIB_PATH)\ws2_32.lib
+
+USE_MSVCRT=1
+
+SOURCES=ninefs.c
+
+UMTYPE=console
+UMBASE=0x400000
