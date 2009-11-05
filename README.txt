@@ -90,7 +90,9 @@ build Dokan from sources.  This is how I build:
   - Mount something and test it out
 
     ninefs tcp!sources.cs.bell-labs.com s
-    dir s:\                                (in another window)
+
+    (in another window)
+    dir s:\plan9\sys\src\9\port
     dokanctl /u s
 
 Note: if you place the files in different locations you will
