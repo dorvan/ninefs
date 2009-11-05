@@ -1,11 +1,45 @@
 Ninefs
+http://code.google.com/p/ninefs
 A 9p filesystem for windows using dokan
 Tim Newsham
 2009 Nov 5
 
-This is still work in progress and has some rough edges.
-It has not yet seen heavy use and may have bugs and may corrupt
-your data or crash your system.
+This is still work in progress and has some rough edges.  It has not 
+yet seen heavy use and may have bugs and may corrupt your data or 
+crash your system.  The code is listed as a BSD license on the google 
+code hosting page, but all code is placed in the public domain.
+
+
+
+NAME
+    ninefs [-cdD] [-u user] addr driveletter
+    dokanctl /u driveletter
+
+DESCRIPTION
+    Ninefs mounts a remote 9p resource as a filesystem on the local 
+    windows machine.  It takes an address in the form "tcp!hostname!port" 
+    or simply "hostname" or "hostname!port" and makes a connection to 
+    a 9p server at that address and mounts it as the windows driveletter 
+    specified.  After the drive has been mounted it can be unmounted 
+    using the dokanctl program.
+
+    The c, d and D options turn on different debug tracing options.  D 
+    turns on dokan debugging messages, c turns on chatty npfs messages 
+    and d turns on ninefs's own debug messages.
+
+BUGS
+    This is an early release and is sure to have many.  In particular,
+    error codes are not well mapped and very simplistic rules are used
+    to convert between unicode utf16 and utf8 strings.  Many
+    important features are missing such as authentication and the
+    ability to specify an attach name.
+
+SOURCE 
+    svn checkout http://ninefs.googlecode.com/svn/trunk/ ninefs
+
+SEE ALSO
+    http://code.google.com/p/ninefs
+    dokanctl
 
 
 
@@ -31,8 +65,7 @@ build Dokan from sources.  This is how I build:
   - Build and install dokan according to 
     http://dokan-dev.net/en/docs/how-to-build-dokan-library/
 
-    <fetch http://dokan-dev.net/wp-content/uploads/dokan-0421238src.zip>
-    <unzip it, rename "src" to "dokan">
+    svn co http://dokan.googlecode.com/svn/trunk dokan
     cd dokan
     cd dokan; build /wcbg
     copy objchk_wxp_x86\i386\dokan.dll c:\windows\system32
@@ -54,10 +87,11 @@ build Dokan from sources.  This is how I build:
     copy objchk_wxp_x86\i386\ninefs.exe c:\windows\system32
     cd ..
 
-  - Mount something
+  - Mount something and test it out
 
     ninefs tcp!sources.cs.bell-labs.com s
     dir s:\                                (in another window)
+    dokanctl /u s
 
 Note: if you place the files in different locations you will
 likely have to edit the ninefs/sources file to reflect your

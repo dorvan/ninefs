@@ -725,7 +725,7 @@ main(int argc, char **argv)
     DOKAN_OPERATIONS ops;
     DOKAN_OPTIONS opt;
     WSADATA wsData;
-    char *serv, *uname;
+    char *serv, *uname, *prog;
     int x, ch;
     char letter;
 
@@ -733,6 +733,7 @@ main(int argc, char **argv)
     memset(&opt, 0, sizeof opt);
 
     uname = "nobody";
+    prog = argv[0];
     while((ch = getopt(argc, argv, "cdDu:")) != -1) {
         switch(ch) {
         case 'c':
@@ -749,14 +750,14 @@ main(int argc, char **argv)
             break;
             
         default:
-            usage(argv[0]);
+            usage(prog);
         }
     
     }
     argc -= optind;
     argv += optind;
     if(argc != 2 || !argv[1][0])
-        usage(argv[0]);
+        usage(prog);
     serv = argv[0];
     letter = argv[1][0];
 
