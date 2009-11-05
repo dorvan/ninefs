@@ -44,6 +44,40 @@ SEE ALSO
 
 
 
+BINARY INSTALL
+
+The download site has prebuilt binaries:
+
+  http://ninefs.googlecode.com/files/ninefs.exe
+  http://ninefs.googlecode.com/files/dokan-binaries.zip
+
+To install and use these:
+
+  - unzip dokan-binaries.zip and copy the files into place.
+    You will need to be administrator:
+
+    copy *.exe c:\windows\system32
+    copy *.sys c:\windows\system32\drivers
+
+  - install dokan
+
+    dokanctl /i a
+
+  - install ninefs
+
+    copy ninefs.exe c:\windows\system32
+
+  - Mount something and test it out
+
+    ninefs tcp!sources.cs.bell-labs.com s
+
+    (in another window)
+    dir s:\plan9\sys\src\9\port
+    dokanctl /u s
+  
+
+
+
 BUILDING
 
 To build you will need a microsoft compiler.  I'm using WinDDK
