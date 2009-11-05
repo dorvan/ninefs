@@ -48,7 +48,7 @@ build Dokan from sources.  This is how I build:
 
   - Build ninefs
 
-    svn co http://XXXX/ninefs/trunk ninefs
+    svn checkout http://ninefs.googlecode.com/svn/trunk/ ninefs
     cd ninefs
     build /wcbg
     copy objchk_wxp_x86\i386\ninefs.exe c:\windows\system32
