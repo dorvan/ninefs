@@ -2,7 +2,7 @@ Ninefs
 http://code.google.com/p/ninefs
 A 9p filesystem for windows using dokan
 Tim Newsham
-2009 Nov 5
+2010 Jan 5
 
 This is still work in progress and has some rough edges.  It has not 
 yet seen heavy use and may have bugs and may corrupt your data or 
@@ -12,7 +12,7 @@ code hosting page, but all code is placed in the public domain.
 
 
 NAME
-    ninefs [-cdD] [-u user] addr driveletter
+    ninefs [-cdDU] [-a authserv] [-p passwd] [-u user] addr driveletter
     dokanctl /u driveletter
 
 DESCRIPTION
@@ -23,6 +23,15 @@ DESCRIPTION
     specified.  After the drive has been mounted it can be unmounted 
     using the dokanctl program.
 
+    The p option specifies a password to use for authentication. If
+    unspecified, authentication is not attempted. Authentication makes 
+    use of an authentication server.  The a option specifies an address
+    for this server in the same format as the addr argument. If ommited,
+    addr argument is used in its place except with a different default
+    port.
+
+    The U option disables 9P2000.u support.
+
     The c, d and D options turn on different debug tracing options.  D 
     turns on dokan debugging messages, c turns on chatty npfs messages 
     and d turns on ninefs's own debug messages.
@@ -31,8 +40,14 @@ BUGS
     This is an early release and is sure to have many.  In particular,
     error codes are not well mapped and very simplistic rules are used
     to convert between unicode utf16 and utf8 strings.  Many
-    important features are missing such as authentication and the
-    ability to specify an attach name.
+    important features are missing such as the ability to specify an 
+    attach name.
+
+    If the addr argument specifies a port it will not be suitable to
+    specify the authentication address. In this case the a option must
+    be used even if the authentication server is running on the same
+    machine.
+
 
 SOURCE 
     svn checkout http://ninefs.googlecode.com/svn/trunk/ ninefs
@@ -84,6 +99,10 @@ To build you will need a microsoft compiler.  I'm using WinDDK
 and do my builds using the x86 Checked Build Environment.  Other
 compilers will probably work, but if you use WinDDK you can also
 build Dokan from sources.  This is how I build:
+
+  - Get a binary copy of the OpenSSL library and install it.  The
+    build files expect it to be in c:\openssl. If it is placed elsewhere
+    edit the OPENSSL definition in the sources file.
 
   - Get dokan, npfs and ninefs sources.  Place all source trees 
     under a common directory.

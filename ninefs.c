@@ -3,14 +3,16 @@
  *  Dokan-based 9p filesystem for windows.
  *
  * TODO:
+ *  - error reporting when dokan fails will make it easier for users
+ *    with dokan incorrectly installed
  *  - better utf8 conversion
  *  - better 8.3 support
  *  - review string ops to make sure we're ok for utf8 everywhere
  *  - make good win32 error codes
  *  - investigate user security.  right now all files appear to be
  *    owned by the user mounting the filesystem.  Is this a dokan limitation?
- *  - auth support for p9sk1 and perhaps others
  *  - ssl support
+ *  - support attach name as an argument
  */
 
 #include <stdio.h>
@@ -19,6 +21,7 @@
 #include <assert.h>
 #include "npfs.h"
 #include "npclient.h"
+#include "npauth.h"
 #include "dokan.h"
 
 static Npuser *user = NULL;
@@ -713,8 +716,8 @@ _Unmount(
 static void
 usage(char *prog)
 {
-    fprintf(stderr, "usage:  %s [-cdD] [-u user] addr driveletter\n", prog);
-    fprintf(stderr, "\taddress may be of form tcp!hostname!port\n");
+    fprintf(stderr, "usage:  %s [-cdDU] [-a authserv] [-p passwd] [-u user] addr driveletter\n", prog);
+    fprintf(stderr, "\taddr and authserv must be of the form tcp!hostname!port\n");
     _exit(1);
 }
 
@@ -725,8 +728,8 @@ main(int argc, char **argv)
     DOKAN_OPERATIONS ops;
     DOKAN_OPTIONS opt;
     WSADATA wsData;
-    char *serv, *uname, *prog;
-    int x, ch;
+    char *serv, *authserv, *passwd, *uname, *prog;
+    int x, ch, dotu;
     char letter;
 
     WSAStartup(MAKEWORD(2,2), &wsData);
@@ -734,8 +737,14 @@ main(int argc, char **argv)
 
     uname = "nobody";
     prog = argv[0];
-    while((ch = getopt(argc, argv, "cdDu:")) != -1) {
+    dotu = 1;
+    authserv = NULL;
+    passwd = NULL;
+    while((ch = getopt(argc, argv, "a:cdDp:u:U")) != -1) {
         switch(ch) {
+        case 'a':
+            authserv = optarg;
+            break;
         case 'c':
             npc_chatty = 1;
             break;
@@ -745,8 +754,14 @@ main(int argc, char **argv)
         case 'D':
             opt.Options |= DOKAN_OPTION_DEBUG | DOKAN_OPTION_STDERR;
             break;
+        case 'p':
+            passwd = optarg;
+            break;
         case 'u':
             uname = optarg;
+            break;
+        case 'U':
+            dotu = 0;
             break;
             
         default:
@@ -762,9 +777,24 @@ main(int argc, char **argv)
     letter = argv[1][0];
 
     user = np_default_users->uname2user(np_default_users, uname);
-    fs = npc_netmount(npc_netaddr(serv, 564), user, 564, NULL, NULL);
+    if(passwd) {
+        struct npcauth auth;
+
+        if(!authserv)
+            authserv = serv;
+        memset(&auth, 0, sizeof auth);
+        makeKey(passwd, auth.key);
+        auth.srv = npc_netaddr(authserv, 567);
+        fs = npc_netmount(npc_netaddr(serv, 564), dotu, user, 564, authp9any, &auth);
+    } else {
+        fs = npc_netmount(npc_netaddr(serv, 564), dotu, user, 564, NULL, NULL);
+    }
     if(!fs) {
-        fprintf(stderr, "failed to mount %s\n", serv);
+        char *emsg;
+        int eno;
+
+        np_rerror(&emsg, &eno);
+        fprintf(stderr, "failed to mount %s: (%d) %s\n", serv, eno, emsg);
         return 1;
     }
 
@@ -797,8 +827,8 @@ main(int argc, char **argv)
     ops.GetVolumeInformation = NULL;
     ops.Unmount = _Unmount;
     x = DokanMain(&opt, &ops);
-    if(debug)
-        fprintf(stderr, "dokan main: %x\n", x);
+    if(x)
+        fprintf(stderr, "error: %x\n", x);
     return 0;
 }
 

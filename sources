@@ -3,11 +3,14 @@ TARGETTYPE=PROGRAM
 
 NPFS=..\npfs
 DOKAN=..\dokan
+OPENSSL=c:\openssl
 
 INCLUDES=$(NPFS)\include;$(DOKAN)\dokan
 LINKLIBS=\
+        $(NPFS)\libnpauth\$(O)\npauth.lib\
         $(NPFS)\libnpclient\$(O)\npclient.lib\
         $(NPFS)\libnpfs\$(O)\npfs.lib\
+        $(OPENSSL)\lib\VC\libeay32MT.lib\
         $(DOKAN)\dokan\$(O)\dokan.lib\
         $(SDK_LIB_PATH)\ws2_32.lib
 
