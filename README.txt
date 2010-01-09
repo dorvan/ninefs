@@ -72,6 +72,7 @@ To install and use these:
     You will need to be administrator:
 
     copy *.exe c:\windows\system32
+    copy *.dll c:\windows\system32
     copy *.sys c:\windows\system32\drivers
 
   - install dokan
