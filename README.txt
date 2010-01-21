@@ -68,6 +68,11 @@ The download site has prebuilt binaries:
 
 To install and use these:
 
+  - Download and install the latest OpenSSL from
+    http://www.slproweb.com/products/Win32OpenSSL.html
+    The "Light" version is sufficient.  You may also have to
+    install the VC++ 2008 Redistributables likned from this site.
+
   - unzip dokan-binaries.zip and copy the files into place.
     You will need to be administrator:
 
