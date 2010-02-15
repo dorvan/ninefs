@@ -108,17 +108,21 @@ build Dokan from sources.  This is how I build:
 
   - Get a binary copy of the OpenSSL library and install it.  The
     build files expect it to be in c:\openssl. If it is placed elsewhere
-    edit the OPENSSL definition in the sources file.
+    edit the OPENSSL definition in the "sources" files.
 
   - Get dokan, npfs and ninefs sources.  Place all source trees 
     under a common directory.
 
-  - Build npfs for windows
+  - Build npfs for windows.  Note, you don't need to make all of the
+    directories, just npfs, libnpclient and libnpauth.  If you're
+    OpenSSL install is not in c:\openssl you will need to edit
+    libnpauth\sources appropriately.
 
     svn co https://npfs.svn.sourceforge.net/svnroot/npfs/npfs/trunk npfs
     cd npfs
     cd libnpfs; nmake /f ntmakefile
     cd ..\libnpclient; nmake /f ntmakefile
+    cd ..\libnpauth; nmake /f ntmakefile
     cd ..\..
 
   - Build and install dokan according to 
@@ -138,7 +142,8 @@ build Dokan from sources.  This is how I build:
 
     dokanctl /i a
 
-  - Build ninefs
+  - Build ninefs.  If your OpenSSL installation is not in c:\openssl
+    you will need to edit ninefs\sources appropriately.
 
     svn checkout http://ninefs.googlecode.com/svn/trunk/ ninefs
     cd ninefs

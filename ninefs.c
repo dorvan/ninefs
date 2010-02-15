@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
 #include "npfs.h"
 #include "npclient.h"
 #include "npauth.h"
@@ -210,11 +211,15 @@ toFindData(Npwstat *st, WIN32_FIND_DATA *fd)
 static int
 cvtError(void)
 {
-    // XXX get npfs error and try to translate it into  
-    // some meaningful win32 error code and return the negative
-    return -(int)ERROR_INVALID_PARAMETER; // XXX bogus
-}
+    char *err;
+    int num;
 
+    np_rerror(&err, &num);
+    switch(num) {
+    case ENOENT: return -(int)ERROR_FILE_NOT_FOUND;
+    default: return -(int)ERROR_INVALID_PARAMETER; // XXX bogus
+    }
+}
 
 
 static int
@@ -231,7 +236,7 @@ _CreateFile(
     int omode, rd, wr;
 
     if(debug)
-        fprintf(stderr, "createfile '%ws' create %d access %x\n", FileName, CreationDisposition, AccessMode);
+        fprintf(stderr, "createfile '%ws' create %d access %x flags %x\n", FileName, CreationDisposition, AccessMode, FlagsAndAttributes);
     rd = (AccessMode & (GENERIC_READ | FILE_READ_DATA)) != 0;
     wr = (AccessMode & (GENERIC_WRITE | FILE_WRITE_DATA)) != 0;
     if(rd && wr)

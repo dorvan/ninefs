@@ -1,8 +1,14 @@
+- test renaming.  someone said it doesnt work
+
+- test drawterm when no auth is present.. does this work?  how?
+  someone has reported that it does.. that also might explain
+  what capso was seeing.
+
 - some auth botches should indicate auth failure instead
   to give better error messages.
   ie. when bad user or password causes a bad decrypt...
 
-- readme needs to discuss building libnpauth too
-  it should probably mention that you dont need to build some directories
-  it should mention how to adjust the path to openssl if necessary
+  - need a clear error when auth server is unreachable or not
+    responding appropriately
+  - need a clear error when user or password is wrong
 
