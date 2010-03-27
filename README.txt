@@ -12,7 +12,7 @@ code hosting page, but all code is placed in the public domain.
 
 
 NAME
-    ninefs [-cdDU] [-a authserv] [-p passwd] [-u user] addr driveletter
+    ninefs [-cdDtU] [-a authserv] [-p passwd] [-u user] addr driveletter
     dokanctl /u driveletter
 
 DESCRIPTION
@@ -35,6 +35,13 @@ DESCRIPTION
     The c, d and D options turn on different debug tracing options.  D 
     turns on dokan debugging messages, c turns on chatty npfs messages 
     and d turns on ninefs's own debug messages.
+
+    In normal operation spaces in windows filenames are converted to
+    question marks and a best effort is made to convert characters to
+    unicode. When the t option is enabled this translation is disabled
+    and errors caused during unicode translation cause errors to be
+    returned.  If a filename translation cause an error during a directory
+    listing, that entry is silently dropped from the listing.
 
 BUGS
     This is an early release and is sure to have many.  In particular,

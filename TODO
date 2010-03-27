@@ -12,3 +12,28 @@
     responding appropriately
   - need a clear error when user or password is wrong
 
+- run tests looking for memory leaks and corruption
+
+
+BUGS:
+- ws2utf8 invalid character encountered or other convesion error
+  in Jorge-Leon's patch, reorted by Georg Lehner
+- Assertion failed: x == 0, file d:\ninefs\npfs\npfs\trunk\libnpfs\winthread.c, line 103
+      int
+      pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mux)
+      {
+          int x, last;
+      
+          pthread_mutex_lock(&cond->lock);
+          cond->waiters++;
+          pthread_mutex_unlock(&cond->lock);
+      
+          // this does a pthread_mutex_unlock on mux
+          x = SignalObjectAndWait(mux->handle, cond->queue, INFINITE, FALSE);
+          assert(x == 0);
+      
+- run out of resources copying many files.
+  memory leak?  I fixed one after this last patch, so possibly
+  already fixed?  
+  
+       

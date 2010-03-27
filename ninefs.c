@@ -5,9 +5,7 @@
  * TODO:
  *  - error reporting when dokan fails will make it easier for users
  *    with dokan incorrectly installed
- *  - better utf8 conversion
- *  - better 8.3 support
- *  - review string ops to make sure we're ok for utf8 everywhere
+ *  - better 8.3 support?  eliminate?
  *  - make good win32 error codes
  *  - investigate user security.  right now all files appear to be
  *    owned by the user mounting the filesystem.  Is this a dokan limitation?
@@ -15,6 +13,7 @@
  *  - support attach name as an argument
  */
 
+#include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,9 +24,12 @@
 #include "npauth.h"
 #include "dokan.h"
 
+#define ARRSZ(a)    (sizeof(a) / sizeof((a)[0]))
+
 static Npuser *user = NULL;
 static Npcfsys *fs = NULL;
 static int debug = 0;
+static int transPath = 1;
 
 static int optind = 1;
 static int optpos = 0;
@@ -77,37 +79,97 @@ static char *
 utf8(LPCWSTR ws)
 {
     char *s;
-    UINT i;
+    int l, e;
 
     if(!ws)
         ws = L"";
 
-    // XXX quick hack for now, fixme.
-    for(i = 0; ws[i]; i++)
-        continue;
-    i++;
-    s = malloc(i);
+    l = WideCharToMultiByte(CP_UTF8, 0, ws, -1, NULL, 0, NULL, NULL);
+    e = GetLastError();
+    if((!transPath && e == ERROR_NO_UNICODE_TRANSLATION)
+    || l == 0) {
+        if(debug)
+            fprintf(stderr, "utf8 bad conversion: %d\n", e);
+        return NULL;
+    }
+    s = malloc(l);
     if(!s) {
         if(debug)
             fprintf(stderr, "utf8 malloc failed\n");
         return NULL;
     }
-    for(i = 0; ws[i]; i++)
-        s[i] = (char)ws[i];
-    s[i] = 0;
+    WideCharToMultiByte(CP_UTF8, 0, ws, -1, s, l, NULL, NULL);
     return s;
 }
 
+// Return a dynamically allocated path in utf8 format with p9 conversions.
 static char*
-utf8path(LPCWSTR ws)
+p9path(LPCWSTR ws)
 {
     char *fn = utf8(ws);
     int i;
 
     if(fn) {
         for(i = 0; fn[i]; i++) {
-            if(fn[i] == '\\')
+            switch(fn[i]) {
+            case '\\':
                 fn[i] = '/';
+                break;
+            case ' ':
+                if(transPath)
+                    fn[i] = '?';
+                break;
+            }
+        }
+    }
+    return fn;
+}
+
+// Return a dynamically allocated wide string.
+static LPWSTR
+wstr(char *s)
+{
+    LPWSTR ws;
+    int l, e;
+
+    if(!s)
+        s = "";
+    l = MultiByteToWideChar(CP_UTF8, 0, s, -1, NULL, 0);
+    e = GetLastError();
+    if((!transPath && e == ERROR_NO_UNICODE_TRANSLATION)
+    || l == 0) {
+        if(debug)
+            fprintf(stderr, "wstr bad conversion: %d\n", e);
+        return NULL;
+    }
+    ws = malloc(l * sizeof *ws);
+    if(!s) {
+        if(debug)
+            fprintf(stderr, "wstr malloc failed\n");
+        return NULL;
+    }
+    MultiByteToWideChar(CP_UTF8, 0, s, -1, ws, l);
+    return ws;
+}
+
+// Return a dynamically allocated path in wstr format with win conversions.
+static LPWSTR
+winpath(char *s)
+{
+    LPWSTR fn = wstr(s);
+    int i;
+
+    if(fn) {
+        for(i = 0; fn[i]; i++) {
+            switch(fn[i]) {
+            case L'/':
+                fn[i] = L'\\';
+                break;
+            case L'?':
+                if(transPath)
+                    fn[i] = L' ';
+                break;
+            }
         }
     }
     return fn;
@@ -121,7 +183,7 @@ maybeOpen(LPCWSTR fname, int omode, int *opened, Npcfid **fidp)
     *opened = 0;
     if(*fidp)
         return;
-    fn = utf8path(fname);
+    fn = p9path(fname);
     *fidp = npc_open(fs, fn, omode);
     if(*fidp)
         *opened = 1;
@@ -175,11 +237,14 @@ toFileInfo(Npwstat *st, LPBY_HANDLE_FILE_INFORMATION fi)
     fi->nFileIndexLow = (DWORD)st->qid.path;
 }
 
-static void
+static int
 toFindData(Npwstat *st, WIN32_FIND_DATA *fd)
 {
+    LPWSTR fn = winpath(st->name);
     int i, j;
 
+    if(!fn)
+        return -(int)ERROR_FILE_NOT_FOUND;
     fd->dwFileAttributes = 0;
     if(st->qid.type & Qtdir)
         fd->dwFileAttributes |= FILE_ATTRIBUTE_DIRECTORY;
@@ -192,20 +257,18 @@ toFindData(Npwstat *st, WIN32_FIND_DATA *fd)
     fd->nFileSizeLow = (DWORD)st->length;
     fd->dwReserved0 = 0;
     fd->dwReserved1 = 0;
-
-    // XXX quick hack -- need better utf8->utf16 conversion here
-    for(i = 0; i < MAX_PATH-1 && st->name[i]; i++)
-        fd->cFileName[i] = st->name[i];
-    fd->cFileName[i] = 0;
+    wcsncpy(fd->cFileName, fn, ARRSZ(fd->cFileName) - 1);
+    free(fn);
 
     // XXX this is a really bad hack:
-    for(j = 0, i = 0 ; j < 13 && st->name[i]; i++) {
+    for(j = 0, i = 0 ; j < 13 && fd->cFileName[i]; i++) {
         if(j == 8)
             fd->cAlternateFileName[j++] = '.';
         if(st->name[i] != '.')
-            fd->cAlternateFileName[j++] = st->name[i];
+            fd->cAlternateFileName[j++] = fd->cFileName[i];
     }
     fd->cAlternateFileName[j] = 0;
+    return 0;
 }
 
 static int
@@ -248,7 +311,7 @@ _CreateFile(
     if(CreationDisposition == TRUNCATE_EXISTING)
         omode |= Otrunc;
 
-    fn = utf8path(FileName);
+    fn = p9path(FileName);
     if(!fn)
         return -(int)ERROR_NOT_ENOUGH_MEMORY;
     fid = npc_open(fs, fn, omode);
@@ -278,7 +341,7 @@ _CreateDirectory(
 
     if(debug)
         fprintf(stderr, "create directory '%ws'\n", FileName);
-    fn = utf8path(FileName);
+    fn = p9path(FileName);
     perm = Dmdir | 0777; // XXX figure out perm
     fid = npc_create(fs, fn, perm, Oread);
     if(fid)
@@ -303,7 +366,7 @@ _OpenDirectory(
 
     if(debug)
         fprintf(stderr, "open directory '%ws'\n", FileName);
-    fn = utf8path(FileName);
+    fn = p9path(FileName);
     if(!fn)
         return -(int)ERROR_NOT_ENOUGH_MEMORY;
 
@@ -423,7 +486,7 @@ _FlushFileBuffers(
 
     if(debug)
         fprintf(stderr, "flushfilebuffers '%ws'\n", FileName);
-    fn = utf8path(FileName);
+    fn = p9path(FileName);
     npc_emptystat(&st);
     e = 0;
     r = npc_wstat(fs, fn, &st);
@@ -450,7 +513,7 @@ _GetFileInformation(
 
     if(debug)
         fprintf(stderr, "getfileinfo '%ws'\n", FileName);
-    fn = utf8path(FileName);
+    fn = p9path(FileName);
     if(!fn)
         return -(int)ERROR_NOT_ENOUGH_MEMORY;
     e = 0;
@@ -484,7 +547,7 @@ _FindFiles(
 
     if(debug)
         fprintf(stderr, "findfiles '%ws'\n", FileName);
-    fn = utf8path(FileName);
+    fn = p9path(FileName);
     if(!fn)
         return -(int)ERROR_NOT_ENOUGH_MEMORY;
     e = 0;
@@ -502,9 +565,15 @@ _FindFiles(
         for(i = 0; i < cnt; i++) {
             if(!st[i].name[0])
                 continue;
-            toFindData(&st[i], &findData);
+            e = toFindData(&st[i], &findData);
+            if(e) {
+                if(debug)
+                    fprintf(stderr, "findfiles error converting '%s'... eliding.\n", st[i].name);
+                continue;
+            }
             FillFindData(&findData, DokanFileInfo);
         }
+        free(st);
     }
     if(fid)
         npc_close(fid);
@@ -527,7 +596,7 @@ _DeleteFile(
 
     if(debug)
         fprintf(stderr, "deletefile %ws\n", FileName);
-    fn = utf8path(FileName);
+    fn = p9path(FileName);
     if(!fn)
         return -(int)ERROR_NOT_ENOUGH_MEMORY;
     r = npc_remove(fs, fn);
@@ -562,8 +631,8 @@ _MoveFile(
     e = 0;
     if(debug)
         fprintf(stderr, "move %ws to %ws\n", FileName, NewFileName);
-    fn = utf8path(FileName);
-    fn2 = utf8path(NewFileName);
+    fn = p9path(FileName);
+    fn2 = p9path(NewFileName);
     if(!fn || !fn2) {
         e = -(int)ERROR_NOT_ENOUGH_MEMORY;
         goto err;
@@ -627,7 +696,7 @@ _SetEndOfFile(
     char *fn;
     int r;
 
-    fn = utf8path(FileName);
+    fn = p9path(FileName);
     if(!fn)
         return -(int)ERROR_NOT_ENOUGH_MEMORY;
     npc_emptystat(&st);
@@ -681,7 +750,7 @@ _SetFileTime(
 
     if(!LastAccessTime && !LastWriteTime)
         return 0;
-    fn = utf8path(FileName);
+    fn = p9path(FileName);
     if(!fn)
         return -(int)ERROR_NOT_ENOUGH_MEMORY;
     npc_emptystat(&st);
@@ -721,8 +790,13 @@ _Unmount(
 static void
 usage(char *prog)
 {
-    fprintf(stderr, "usage:  %s [-cdDU] [-a authserv] [-p passwd] [-u user] addr driveletter\n", prog);
+    fprintf(stderr, "usage:  %s [-cdDtU] [-a authserv] [-p passwd] [-u user] addr driveletter\n", prog);
     fprintf(stderr, "\taddr and authserv must be of the form tcp!hostname!port\n");
+    fprintf(stderr, "\t-c\tchatty npfs messages\n");
+    fprintf(stderr, "\t-d\tninefs debug messages\n");
+    fprintf(stderr, "\t-D\tDokan debug mesages\n");
+    fprintf(stderr, "\t-t\tdo not perform path character translations\n");
+    fprintf(stderr, "\t-U\tdisable 9p2000.u support\n");
     _exit(1);
 }
 
@@ -745,7 +819,7 @@ main(int argc, char **argv)
     dotu = 1;
     authserv = NULL;
     passwd = NULL;
-    while((ch = getopt(argc, argv, "a:cdDp:u:U")) != -1) {
+    while((ch = getopt(argc, argv, "a:cdDp:tu:U")) != -1) {
         switch(ch) {
         case 'a':
             authserv = optarg;
@@ -761,6 +835,9 @@ main(int argc, char **argv)
             break;
         case 'p':
             passwd = optarg;
+            break;
+        case 't':
+            transPath = 0;
             break;
         case 'u':
             uname = optarg;
